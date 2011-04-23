@@ -7,6 +7,7 @@ import os
 import ConfigParser
 import sys
 import codecs
+import time
 from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
 
@@ -49,7 +50,7 @@ class JabberLogBot(JabberBot):
 			self.config.write(f)
 			f.close()
 		except:
-			self.log('Could not write configfile: '+configfile)
+			self.log.warning('Could not write configfile: '+configfile)
 
 	# Every unknown command is a line we want to log
 	def unknown_command(self, mess, cmd, args):
@@ -78,13 +79,13 @@ class JabberLogBot(JabberBot):
 			try:
 				os.mkdir(folder)
 			except:
-				self.log('Can not create log folder: '+folder)
+				self.log.warning('Can not create log folder: '+folder)
 				broadcast('WARNING: Can not create log folder')
 				return
 			try:
 				copy('index.php',folder)
 			except:
-				self.log('Can not copy index.php to log folder')
+				self.log.warning('Can not copy index.php to log folder')
 				return
 			
 		try:
@@ -92,7 +93,7 @@ class JabberLogBot(JabberBot):
 			f.write(output)
 			f.close()
 		except:
-			self.log('Can no write log file: '+file)
+			self.log.warning('Can no write log file: '+file)
 			broadcast('WARNING: Can not write log file')
 
 	def join( self):
@@ -103,7 +104,7 @@ class JabberLogBot(JabberBot):
 		channel = presence.getFrom().getStripped()
 		if channel in self.channels:
 			if presence.getStatusCode() == '307':
-				self.log('I was kicked from '+channel)
+				self.log.info('I was kicked from '+channel)
 
 				self.channels.remove(channel)
 				self.save_config()
@@ -115,18 +116,20 @@ class JabberLogBot(JabberBot):
 		# If the message is a 'normal' maybe we were invited
 		if type == 'normal':
 			# Check for an invite tag
-			invitation = mess.getTag('x').getTag('invite')
-			if invitation != None:
-				in_channel = mess.getFrom().getStripped()
-				in_from = invitation.getAttr('from').split('/')[0]
-				# Check if an admin invited me
-				if in_from in self.admins:
-					self.log('I was invited to '+in_channel+' by '+in_from)
-					
-					self.channels.append(in_channel)
-					self.save_config()
-	
-					self.join()
+			mess_tag_x = mess.getTag('x')
+			if mess_tag_x != None:
+				invitation = mess_tag_x.getTag('invite')
+				if invitation != None:
+					in_channel = mess.getFrom().getStripped()
+					in_from = invitation.getAttr('from').split('/')[0]
+					# Check if an admin invited me
+					if in_from in self.admins:
+						self.log.info('I was invited to '+in_channel+' by '+in_from)
+						
+						self.channels.append(in_channel)
+						self.save_config()
+		
+						self.join()
 
 		super(JabberLogBot, self).callback_message(conn, mess)
 
@@ -169,6 +172,8 @@ class JabberLogBot(JabberBot):
 	@botcmd
 	def _serverinfo( self, mess, args):
 		"""Displays information about the server"""
+		self.logger(mess);
+
 		version = open('/proc/version').read().strip()
 		loadavg = open('/proc/loadavg').read().strip()
 
@@ -193,6 +198,9 @@ class JabberLogBot(JabberBot):
 	@botcmd
 	def _fortune( self, mess, args):
 		"""Returns a random quote"""
+
+		self.logger(mess)
+
 		cmd = ['/usr/games/fortune']
 		cmd.extend(args.split())
 		try:
@@ -202,15 +210,15 @@ class JabberLogBot(JabberBot):
 			try:
 				stdout = stdout.decode('utf-8')
 			except UnicodeError:
-				self.log('Decode with utf-8 did not work. Using latin_1')
+				self.log.warning('Decode with utf-8 did not work. Using latin_1')
 				try:
 					stdout = stdout.decode('latin_1')
 				except UnicodeError:
-					self.log('Decode with latin_1 did not work. Using utf-8 and ignore errors')
+					self.log.warning('Decode with latin_1 did not work. Using utf-8 and ignore errors')
 					stdout = stdout.decode('utf-8', 'replace')
 			stdout = stdout.encode('utf-8')
-			self.log(stdout.rstrip('\n'))
-			return '\n' + stdout.rstrip('\n')
+			self.log.info(stdout.rstrip('\n'))
+			return stdout.rstrip('\n')
 		except Exception, error:
 			return 'An error occured: %s' % error
 	
