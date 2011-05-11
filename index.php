@@ -8,17 +8,56 @@
 
 <style type="text/css">
 body {
-    font-family: Verdana, Helvetica, sans-serif;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
     font-size: 12px;
-    color: #000000;
 }
-.date {
-	font-family: Courier New, Courier, mono;
+table {
+	font-size: 1.1em;
 }
-pre {
+.date  {
+	vertical-align: top;
+}
+.message {
 	white-space: pre-wrap;
 }
+.nick {
+	vertical-align: top;
+	text-align: right;
+	padding: 0 1em;
+}
 </style>
+
+<script type="text/javascript" src="http://github.com/cowboy/javascript-linkify/raw/master/ba-linkify.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">
+function colorFromString(str, seed) { // java String#hashCode
+	var hash = seed;
+	for (var i = 0; i < str.length; i++) {
+		hash = str.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	var color = Math.abs(hash).toString(16).substring(0,6);
+	return color;
+} 
+
+$(document).ready(function()
+{
+	var seed = parseInt(Math.random()*100);
+	$("#logtable tr").each(function() {
+		var nick = $(this).find("td:nth-child(2)");
+		var color = colorFromString(nick.html(), seed);
+		nick.css("color", color);
+
+		var message = $(this).find("td:nth-child(3)");
+
+		linkifyoptions = {
+			callback: function( text, href ) {
+        			return href ? '<a target="_blank" href="' + href + '" title="' + href + '">' + text + '</a>' : text;
+			}
+		};
+		message.html(linkify(message.html(), linkifyoptions));
+	});
+});
+</script>
 
 </head>
 
@@ -38,9 +77,14 @@ echo $dir[sizeof($dir)-1]; ?></h1>
     </p>
 
     <h2><?php echo($date); ?></h2>
-    
+    <table id="logtable">
+	<tbody>
 <?php
         readfile($date . ".log");
+?>
+	</tbody>
+    </table>
+<?php
     }
     else {
         $dir = opendir(".");
