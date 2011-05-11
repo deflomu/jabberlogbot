@@ -1,0 +1,11 @@
+[log]
+folder = /var/www/log/htdocs
+log = true
+
+[general]
+jid = logbot@example.com
+password = 
+channels = 
+admins = yourjid@example.com
+debug = false
+
