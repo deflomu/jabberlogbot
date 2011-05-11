@@ -1,0 +1,8 @@
+This is a jabber log bot that can log muc chat rooms. You can invite it in chat rooms and it will start to log them and you can kick it and it will stop to log the chat rooms.
+
+The bot can also print some things in the channel. To get the available commands, just send "help" to the bot.
+
+One hidden command is "_getin" which tells the bot to try to get into the channels he should log (where he was invited before).
+
+There are some flaw, for example the bat cannot reconnect itself to the server and for now it just runs in the foreground (screen rocks)
+
