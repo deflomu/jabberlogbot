@@ -8,8 +8,12 @@ import ConfigParser
 import sys
 import codecs
 import time
+import re
 from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
+
+import logging
+#logging.basicConfig()
 
 #import wikipedia
 
@@ -17,6 +21,8 @@ mem_path = '/usr/share/screen/scripts/mem'
 swap_path = '/usr/share/screen/scripts/swap'
 
 configfile = 'jabberlogbot.conf'
+
+maxofflinemessages = 1000
 
 class JabberLogBot(JabberBot):
 
@@ -33,12 +39,29 @@ class JabberLogBot(JabberBot):
 
 		self.channels = self.config.get('general','channels').split(',')
 
-		self.logging = self.config.getboolean('log','log')
+		self.isLogging = self.config.getboolean('log','log')
 		
 		self.logFolder = self.config.get('log','folder')
 
+		# all the users that want to be notified if they got offline messages
+		self.offlineUsers = self.config._sections['offlinemessages']
+		
 		# Spawn bot
 		super( JabberLogBot, self).__init__(jid, password, debug=debug)
+		# create console handler
+		chandler = logging.StreamHandler()
+		# create formatter
+		formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+		# add formatter to handler
+		chandler.setFormatter(formatter)
+		# add handler to logger
+		self.log.addHandler(chandler)
+		# set level to INFO
+		self.log.setLevel(logging.DEBUG)
+
+		self.offlineMessages = []
+		self.nickRegex = re.compile(r'(\S+):')
+		self.stripHTMLTagsRegex = re.compile(r'<.*?>')
 
 	# Save parameters to config
 	def save_config(self):
@@ -54,19 +77,22 @@ class JabberLogBot(JabberBot):
 
 	# Every unknown command is a line we want to log
 	def unknown_command(self, mess, cmd, args):
-		self.logger(mess)
+		self.logMessage(mess)
 	
 	def top_of_help_message(self):
 		return "This is the skweez.net jabber bot.\nThis channel is logged so watch your mouth."
 
-	def logger(self, mess):
-		if not self.logging:
+	def saveOfflineMessage(self, uniqueKey, messageTime, senderUsername, rawMessage):
+		offlineMessage = '<b>'+messageTime.strftime('%H:%M')+' '+senderUsername+':</b> '+ rawMessage
+		self.offlineMessages.append((uniqueKey, offlineMessage))
+		if len(self.offlineMessages) >= maxofflinemessages:
+			self.offlineMessages.remove(0);
+
+	def logMessage(self, mess):
+		if not self.isLogging:
 			return
 		
 		channel = mess.getFrom().getStripped()
-		folder = '%s/%s/' % (self.logFolder, channel)
-		file = '%s%s.log' % (folder, datetime.now().strftime('%Y-%m-%d'))
-		output = '<tr><td class="date">%s</td><td class="nick" id="%s">%s:</td> <td class="message">%s</td></tr>\n' % (datetime.now().strftime('%H:%M'), self.get_sender_username(mess), self.get_sender_username(mess), mess.getBody())
 
 		if mess.getType() != 'groupchat':
 			return
@@ -74,7 +100,8 @@ class JabberLogBot(JabberBot):
 		if channel not in self.channels:
 			return
 
-
+		folder = '%s/%s/' % (self.logFolder, channel)
+		file = '%s%s.log' % (folder, datetime.now().strftime('%Y-%m-%d'))
 		if not os.path.exists(folder):
 			try:
 				os.mkdir(folder)
@@ -87,7 +114,9 @@ class JabberLogBot(JabberBot):
 			except:
 				self.log.warning('Can not copy index.php to log folder')
 				return
-			
+		messageTime = datetime.now()
+		senderUsername = self.get_sender_username(mess)
+		output = '<tr><td class="date">%s</td><td class="nick" id="%s">%s:</td> <td class="message">%s</td></tr>\n' % (messageTime.strftime('%H:%M'), senderUsername, senderUsername, mess.getBody())
 		try:
 			f = codecs.open(file, 'a', 'utf-8')
 			f.write(output)
@@ -95,6 +124,16 @@ class JabberLogBot(JabberBot):
 		except:
 			self.log.warning('Can no write log file: '+file)
 			broadcast('WARNING: Can not write log file')
+
+		# We want to store messages for users that are not here right now
+		rawMessage = self.stripHTMLTagsRegex.sub('', mess.getBody())
+		nick = self.nickRegex.match(rawMessage)
+		if nick is not None:
+			nick = nick.group(1)
+			uniqueKey = nick+' '+channel
+			if uniqueKey in self.offlineUsers and channel+'/'+nick not in self._JabberBot__seen:
+				self.log.debug('Got a offline message for %s: "%s %s: %s' % ( nick, messageTime.strftime('%H:%M'), senderUsername, rawMessage, ))
+				self.saveOfflineMessage(uniqueKey, messageTime, senderUsername, rawMessage)
 
 	def join( self):
 		for c in self.channels:
@@ -105,10 +144,30 @@ class JabberLogBot(JabberBot):
 		if channel in self.channels:
 			if presence.getStatusCode() == '307':
 				self.log.info('I was kicked from '+channel)
-
 				self.channels.remove(channel)
 				self.save_config()
-			
+			elif presence.getType() is None:
+				jid = presence.getFrom()
+				old_show, old_status = self._JabberBot__seen.get(jid, (self.OFFLINE, None))
+				if old_show is self.OFFLINE:
+					uniqueKey = jid.getResource()+' '+jid.getStripped()
+					self.log.debug('User %s came online.'%uniqueKey)
+					print self.offlineMessages
+					message = 'Hey, %s. Someone left a message for you:' % jid.getResource()
+					foundone = False
+					entriesToDelete = []
+					for (key, offlineMessage) in self.offlineMessages:
+						print key+' '+offlineMessage
+						if key == uniqueKey:
+							foundone = True
+							message = message + '<br />' + offlineMessage
+							entriesToDelete.append((key, offlineMessage))
+					if foundone == True:
+						for item in entriesToDelete:
+							self.offlineMessages.remove(item)
+						entriesToDelete = []
+						self.send(jid.getStripped(), message, None, 'groupchat')
+		
 		super(JabberLogBot, self).callback_presence(conn, presence)
 
 	def callback_message(self, conn, mess):
@@ -172,7 +231,7 @@ class JabberLogBot(JabberBot):
 	@botcmd
 	def _serverinfo( self, mess, args):
 		"""Displays information about the server"""
-		self.logger(mess);
+		self.logMessage(mess);
 
 		version = open('/proc/version').read().strip()
 		loadavg = open('/proc/loadavg').read().strip()
@@ -199,7 +258,7 @@ class JabberLogBot(JabberBot):
 	def _fortune( self, mess, args):
 		"""Returns a random quote"""
 
-		self.logger(mess)
+		self.logMessage(mess)
 
 		cmd = ['/usr/games/fortune']
 		cmd.extend(args.split())
@@ -229,6 +288,48 @@ class JabberLogBot(JabberBot):
 	#	page = wikipedia.Page(site, args)
 	#	wikipedia.stopme()
 	#	return page.get()
+
+	# offline message handling
+	@botcmd
+	def _addofflinenick( self, mess, args):
+		"""Saves offline messages for you that are send to the specified nick in a MUC while you are away. This is a per nick and per channel setting. You have to register your nick in every channel whereyou want to receive offline messages. You can register as many nicks as you like."""
+		if mess.getType() != 'groupchat':
+			return 'This feature is only available in group chats'
+		if len(args) == 0:
+			return 'Please supply a nick as argument'
+		nick = args.split(' ')[0]
+		user = mess.getFrom()
+		channel = user.getStripped()
+		uniqueKey = nick+' '+channel
+		if uniqueKey in self.offlineUsers:
+			return 'This nick is already in use.'
+		else:
+			self.offlineUsers[uniqueKey] = user
+			self.config.set('offlinemessages', uniqueKey, user)
+			self.save_config()
+			self.log.info('Messages for %s will be stored for %s' % (nick, user, ))
+			return 'Messages for %s will be stored for %s' % (nick, user, )
+
+	@botcmd
+	def _deleteofflinenick( self, mess, args):
+		"""Deletes the specified nick from the offline message system. You will no longer receive offline messages in this channel"""
+		if mess.getType() != 'groupchat':
+			return 'This feature is only available in group chats'
+		if len(args) == 0:
+			return 'Please supply a nick as argument'
+		nick = args.split(' ')[0]
+		user = mess.getFrom()
+		channel = user.getStripped()
+		uniqueKey = nick+' '+channel
+		if uniqueKey in self.offlineUsers:
+			if self.offlineUsers[uniqueKey] == user:
+				del self.offlineUsers[uniqueKey]
+				self.config.remove_option('offlinemessages', uniqueKey)
+				self.save_config()
+				self.log.info('Deleted %s from the offline message system' % nick)
+				return 'Deleted %s from the offline message system' % nick
+		else:
+			return 'Nick %s not found' % nick
 
 bot = JabberLogBot()
 
