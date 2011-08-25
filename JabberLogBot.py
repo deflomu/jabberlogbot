@@ -13,7 +13,6 @@ from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
 
 import logging
-#logging.basicConfig()
 
 #import wikipedia
 
@@ -160,7 +159,7 @@ class JabberLogBot(JabberBot):
 						print key+' '+offlineMessage
 						if key == uniqueKey:
 							foundone = True
-							message = message + '<br />' + offlineMessage
+							message = message + '<br />\n' + offlineMessage
 							entriesToDelete.append((key, offlineMessage))
 					if foundone == True:
 						for item in entriesToDelete:
