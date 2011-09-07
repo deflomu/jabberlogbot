@@ -9,6 +9,8 @@ import sys
 import codecs
 import time
 import re
+import urllib
+import simplejson
 from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
 
@@ -329,6 +331,18 @@ class JabberLogBot(JabberBot):
 				return 'Deleted %s from the offline message system' % nick
 		else:
 			return 'Nick %s not found' % nick
+
+	@botcmd
+	def google( self, mess, args ):
+		"""Returns the first google result for your query"""
+		query = urllib.urlencode({'q' : args})
+		url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s' % (query)
+		search_results = urllib.urlopen(url)
+		json = simplejson.loads(search_results.read())
+		results = json['responseData']['results']
+		if len(results) == 0:
+			return "Sorry, nothing found."
+		return results[0]['url']
 
 bot = JabberLogBot()
 
