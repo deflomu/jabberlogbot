@@ -335,6 +335,7 @@ class JabberLogBot(JabberBot):
 	@botcmd
 	def google( self, mess, args ):
 		"""Returns the first google result for your query"""
+		self.logMessage(mess)
 		query = urllib.urlencode({'q' : args})
 		url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s' % (query)
 		search_results = urllib.urlopen(url)
