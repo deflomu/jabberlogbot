@@ -44,6 +44,8 @@ class JabberLogBot(JabberBot):
 		
 		self.logFolder = self.config.get('log','folder')
 
+		self.googleApiKey = self.config.get('general', 'googleapikey')
+
 		# all the users that want to be notified if they got offline messages
 		self.offlineUsers = self.config._sections['offlinemessages']
 		
@@ -336,14 +338,16 @@ class JabberLogBot(JabberBot):
 	def google( self, mess, args ):
 		"""Returns the first google result for your query"""
 		self.logMessage(mess)
-		query = urllib.urlencode({'q' : args})
-		url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s' % (query)
+		query = urllib.urlencode({'key' : self.googleApiKey, 'q' : args})
+		url = 'https://www.googleapis.com/customsearch/v1?cx=004970785222078633189:xanzqd-yq7w&googlehost=google.de&num=1&%s' % (query)
 		search_results = urllib.urlopen(url)
+		if search_results.getcode() is not 200:
+			return "Sorry, an error occurred. Status code was: %s" % str(search_results.getcode())
 		json = simplejson.loads(search_results.read())
-		results = json['responseData']['results']
+		results = json['items']
 		if len(results) == 0:
 			return "Sorry, nothing found."
-		return results[0]['url']
+		return results[0]['link']
 
 bot = JabberLogBot()
 
