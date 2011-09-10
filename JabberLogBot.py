@@ -344,10 +344,17 @@ class JabberLogBot(JabberBot):
 		if search_results.getcode() is not 200:
 			return "Sorry, an error occurred. Status code was: %s" % str(search_results.getcode())
 		json = simplejson.loads(search_results.read())
-		results = json['items']
+		try:
+			results = json['items']
+		except:
+			return "Sorry, nothing found."
 		if len(results) == 0:
 			return "Sorry, nothing found."
 		return results[0]['link']
+
+	@botcmd(hidden=True)
+	def g ( self, mess, args ):
+		return self.google(mess, args)
 
 bot = JabberLogBot()
 
