@@ -338,7 +338,7 @@ class JabberLogBot(JabberBot):
 	def google( self, mess, args ):
 		"""Returns the first google result for your query"""
 		self.logMessage(mess)
-		query = urllib.urlencode({'key' : self.googleApiKey, 'q' : args})
+		query = urllib.urlencode({'key' : self.googleApiKey, 'q' : args.encode('utf-8')})
 		url = 'https://www.googleapis.com/customsearch/v1?cx=004970785222078633189:xanzqd-yq7w&googlehost=google.de&num=1&%s' % (query)
 		search_results = urllib.urlopen(url)
 		if search_results.getcode() is not 200:
