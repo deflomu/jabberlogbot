@@ -383,7 +383,7 @@ class JabberLogBot(JabberBot):
 			self.log.info('Sending tweets to channel '+channel);
 			message = 'New tweets:\n';
 			for tweet in tweets:
-				message += tweet.user.screen_name + ': ' + tweet.text + '\n';
+				message += '@'+tweet.user.screen_name + ': ' + tweet.text + '\n';
 			self.send(channel, message, None, 'groupchat')
 		#look for new tweets every 5 minutes
 		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
