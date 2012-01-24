@@ -10,3 +10,10 @@ admins = yourjid@example.com
 debug = false
 googleapikey = 
 
+[twitter]
+consumer_key = 
+consumer_secret = 
+access_token_key = 
+access_token_secret = 
+latestTweetID = 0
+channels = 

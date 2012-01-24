@@ -13,10 +13,10 @@ import urllib
 import simplejson
 from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
+import twitter # from http://code.google.com/p/python-twitter/
+import threading
 
 import logging
-
-#import wikipedia
 
 mem_path = '/usr/share/screen/scripts/mem'
 swap_path = '/usr/share/screen/scripts/swap'
@@ -24,6 +24,7 @@ swap_path = '/usr/share/screen/scripts/swap'
 configfile = 'jabberlogbot.conf'
 
 maxofflinemessages = 1000
+twittercheckinterval = 300.0
 
 class JabberLogBot(JabberBot):
 
@@ -66,11 +67,20 @@ class JabberLogBot(JabberBot):
 		self.nickRegex = re.compile(r'(\S+):')
 		self.stripHTMLTagsRegex = re.compile(r'<.*?>')
 
+		#initialize twitter api
+		consumer_key = self.config.get('twitter', 'consumer_key');
+		consumer_secret = self.config.get('twitter', 'consumer_secret');
+		access_token_key = self.config.get('twitter', 'access_token_key');
+		access_token_secret = self.config.get('twitter', 'access_token_secret');
+		self.twitter = twitter.Api(consumer_key=consumer_key, consumer_secret=consumer_secret,access_token_key=access_token_key, access_token_secret=access_token_secret);
+		self.twitterChannels = self.config.get('twitter', 'channels').split(',');
+		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
+
 	# Save parameters to config
 	def save_config(self):
 		# Join the channels to a string
-		channels = ','.join(self.channels)
-		self.config.set('general','channels',channels)
+		self.config.set('twitter', 'channels', ','.join(self.twitterChannels));
+		self.config.set('general', 'channels', ','.join(self.channels))
 		try:
 			f = open(configfile,'wb')
 			self.config.write(f)
@@ -141,6 +151,7 @@ class JabberLogBot(JabberBot):
 	def join( self):
 		for c in self.channels:
 			self.join_room(c)
+		self.twitterTimer.start();
 
 	def callback_presence(self, conn, presence):
 		channel = presence.getFrom().getStripped()
@@ -284,14 +295,6 @@ class JabberLogBot(JabberBot):
 		except Exception, error:
 			return 'An error occured: %s' % error
 	
-	#@botcmd(hidden=True)
-	#def _wiki( self, mess, args):
-	#	"""Return the wikipedia site to arg"""
-	#	site = wikipedia.getSite() # Taking the default site
-	#	page = wikipedia.Page(site, args)
-	#	wikipedia.stopme()
-	#	return page.get()
-
 	# offline message handling
 	@botcmd
 	def _addofflinenick( self, mess, args):
@@ -356,7 +359,67 @@ class JabberLogBot(JabberBot):
 	def g ( self, mess, args ):
 		return self.google(mess, args)
 
+	def getLatestTweets( self ):
+		latestTweetID = self.config.get('twitter', 'latestTweetID');
+
+		tweets = self.twitter.GetFriendsTimeline(retweets=True, since_id=latestTweetID, count=10);
+		if tweets:
+			latestTweet = next(iter(tweets), None);
+			if latestTweet:
+				self.config.set('twitter','latestTweetID', latestTweet.id);
+				self.save_config();
+		return tweets;
+
+	def twitterLoop(self):
+		self.log.debug('Looking for new tweets');
+		if len(self.twitterChannels) == 0:
+			return;
+		tweets = self.getLatestTweets();
+		if len(tweets) == 0:
+			return;
+		for channel in self.twitterChannels:
+			if channel == '':
+				continue;
+			self.log.info('Sending tweets to channel '+channel);
+			message = 'New tweets:\n';
+			for tweet in tweets:
+				message += tweet.user.screen_name + ': ' + tweet.text + '\n';
+			self.send(channel, message, None, 'groupchat')
+		#look for new tweets every 5 minutes
+		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
+		self.twitterTimer.start();
+
+	@botcmd
+	def _enabletwitter(self, mess, args):
+		"""Display twitter messages in this channel"""
+		if mess.getType() != 'groupchat':
+			return 'This command is only avaliable in group chats';
+		channel = mess.getFrom().getStripped();
+		if not channel in self.twitterChannels:
+			self.twitterChannels.append(channel);
+			self.save_config();
+			self.log.info('Enabled twitter for channel '+channel);
+			return 'Enabled Twitter in channel '+channel;
+		else:
+			return 'Twitter is already enabled for '+channel;
+	
+	@botcmd
+	def _disabletwitter(self, mess, agrs):
+		"""Stop displaying twitter messages in this channel"""
+		if mess.getType() != 'groupchat':
+			return 'This command is only avaliable in group chats';
+		channel = mess.getFrom().getStripped();
+		if channel in self.twitterChannels:
+			self.twitterChannels.remove(channel);
+			self.save_config();
+			self.log.info('Disabled twitter for channel '+channel);
+			return 'Disabled Twitter in channel '+channel;
+		else:
+			return 'Twitter is not enabled for '+channel;
+
+	def shutdown(self):
+		self.twitterTimer.cancel();
+
 bot = JabberLogBot()
 
 bot.serve_forever( connect_callback = bot.join() )
-#wikipedia.stopme()
