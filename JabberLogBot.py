@@ -15,6 +15,8 @@ from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
 import twitter # from http://code.google.com/p/python-twitter/
 import threading
+# used for expanding short urls
+import urllib2
 
 import logging
 
@@ -24,7 +26,7 @@ swap_path = '/usr/share/screen/scripts/swap'
 configfile = 'jabberlogbot.conf'
 
 maxofflinemessages = 1000
-twittercheckinterval = 300.0
+twittercheckinterval = 10.0
 
 class JabberLogBot(JabberBot):
 
@@ -75,6 +77,7 @@ class JabberLogBot(JabberBot):
 		self.twitter = twitter.Api(consumer_key=consumer_key, consumer_secret=consumer_secret,access_token_key=access_token_key, access_token_secret=access_token_secret);
 		self.twitterChannels = self.config.get('twitter', 'channels').split(',');
 		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
+		self.match_urls = re.compile(r"""((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|(([^\s()<>]+|(([^\s()<>]+)))*))+(?:(([^\s()<>]+|(([^\s()<>]+)))*)|[^\s`!()[]{};:'".,<>?«»“”‘’]))""", re.DOTALL);
 
 	# Save parameters to config
 	def save_config(self):
@@ -359,6 +362,10 @@ class JabberLogBot(JabberBot):
 	def g ( self, mess, args ):
 		return self.google(mess, args)
 
+	def expandLinksInText(self, text):
+		return self.match_urls.sub(lambda x: urllib2.urlopen(x.group()).url, text);
+		
+
 	def getLatestTweets( self ):
 		latestTweetID = self.config.get('twitter', 'latestTweetID');
 
@@ -383,7 +390,7 @@ class JabberLogBot(JabberBot):
 			self.log.info('Sending tweets to channel '+channel);
 			message = 'New tweets:\n';
 			for tweet in tweets:
-				message += tweet.user.screen_name + ': ' + tweet.text + '\n';
+				message += tweet.user.screen_name + ': ' + self.expandLinksInText(tweet.text) + '\n';
 			self.send(channel, message, None, 'groupchat')
 		#look for new tweets every 5 minutes
 		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
