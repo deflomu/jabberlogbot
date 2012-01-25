@@ -26,7 +26,7 @@ swap_path = '/usr/share/screen/scripts/swap'
 configfile = 'jabberlogbot.conf'
 
 maxofflinemessages = 1000
-twittercheckinterval = 10.0
+twittercheckinterval = 600.0
 
 class JabberLogBot(JabberBot):
 
