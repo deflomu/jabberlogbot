@@ -379,11 +379,21 @@ class JabberLogBot(JabberBot):
 
 	def twitterLoop(self):
 		self.log.debug('Looking for new tweets');
+		
+		#look for new tweets after interval
+		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
+		self.twitterTimer.start();
+		
 		if len(self.twitterChannels) == 0:
+			self.log.debug('No channels are registered for twitter');
 			return;
+		
 		tweets = self.getLatestTweets();
+		
 		if len(tweets) == 0:
+			self.log.debug('No new tweets found');
 			return;
+		
 		for channel in self.twitterChannels:
 			if channel == '':
 				continue;
@@ -392,9 +402,6 @@ class JabberLogBot(JabberBot):
 			for tweet in tweets:
 				message += '@'+tweet.user.screen_name + ': ' + self.expandLinksInText(tweet.text) + '\n';
 			self.send(channel, message, None, 'groupchat')
-		#look for new tweets every 5 minutes
-		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
-		self.twitterTimer.start();
 
 	@botcmd
 	def _enabletwitter(self, mess, args):
