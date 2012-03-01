@@ -418,7 +418,7 @@ class JabberLogBot(JabberBot):
 			return 'Twitter is already enabled for '+channel;
 	
 	@botcmd
-	def _disabletwitter(self, mess, agrs):
+	def _disabletwitter(self, mess, args):
 		"""Stop displaying twitter messages in this channel"""
 		if mess.getType() != 'groupchat':
 			return 'This command is only avaliable in group chats';
@@ -433,6 +433,14 @@ class JabberLogBot(JabberBot):
 
 	def shutdown(self):
 		self.twitterTimer.cancel();
+
+	@botcmd(hidden=True)
+	def ping(self, mess, args):
+		return "pong";
+	
+	@botcmd(hidden=True)
+	def gn8(self, mess, args):
+		return "gn8";
 
 bot = JabberLogBot()
 
