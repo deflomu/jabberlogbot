@@ -440,7 +440,8 @@ class JabberLogBot(JabberBot):
 	
 	@botcmd(hidden=True)
 	def gn8(self, mess, args):
-		return "gn8";
+		if self.get_sender_username(mess) != 'logbot':
+			return "gn8";
 
 bot = JabberLogBot()
 
