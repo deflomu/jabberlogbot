@@ -439,6 +439,11 @@ class JabberLogBot(JabberBot):
 		return "pong";
 	
 	@botcmd(hidden=True)
+	def moin(self, mess, args):
+		if self.get_sender_username(mess) != 'logbot':
+			return "moin";
+	
+	@botcmd(hidden=True)
 	def gn8(self, mess, args):
 		if self.get_sender_username(mess) != 'logbot':
 			return "gn8";
