@@ -94,15 +94,10 @@ class JabberLogBot(JabberBot):
 	# Every unknown command is a line we want to log
 	def unknown_command(self, mess, cmd, args):
 		self.logMessage(mess)
+		self.saveOfflineMessage(mess)
 	
 	def top_of_help_message(self):
 		return "This is the skweez.net jabber bot.\nThis channel is logged so watch your mouth."
-
-	def saveOfflineMessage(self, uniqueKey, messageTime, senderUsername, rawMessage):
-		offlineMessage = '<b>'+messageTime.strftime('%H:%M')+' '+senderUsername+':</b> '+ rawMessage
-		self.offlineMessages.append((uniqueKey, offlineMessage))
-		if len(self.offlineMessages) >= maxofflinemessages:
-			self.offlineMessages.remove(0);
 
 	def logMessage(self, mess):
 		if not self.isLogging:
@@ -140,16 +135,23 @@ class JabberLogBot(JabberBot):
 		except:
 			self.log.warning('Can no write log file: '+file)
 			broadcast('WARNING: Can not write log file')
-
+	
+	def saveOfflineMessage(self, mess):
 		# We want to store messages for users that are not here right now
 		rawMessage = self.stripHTMLTagsRegex.sub('', mess.getBody())
 		nick = self.nickRegex.match(rawMessage)
+		channel = mess.getFrom().getStripped()
 		if nick is not None:
 			nick = nick.group(1)
 			uniqueKey = nick+' '+channel
 			if uniqueKey in self.offlineUsers and channel+'/'+nick not in self._JabberBot__seen:
+				senderUsername = self.get_sender_username(mess)
+				messageTime = datetime.now()
 				self.log.debug('Got a offline message for %s: "%s %s: %s' % ( nick, messageTime.strftime('%H:%M'), senderUsername, rawMessage, ))
-				self.saveOfflineMessage(uniqueKey, messageTime, senderUsername, rawMessage)
+				offlineMessage = '<b>'+messageTime.strftime('%H:%M')+' '+senderUsername+':</b> '+ rawMessage
+				self.offlineMessages.append((uniqueKey, offlineMessage))
+				if len(self.offlineMessages) >= maxofflinemessages:
+					self.offlineMessages.remove(0);
 
 	def join( self):
 		for c in self.channels:
