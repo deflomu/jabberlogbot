@@ -28,6 +28,8 @@ configfile = 'jabberlogbot.conf'
 maxofflinemessages = 1000
 twittercheckinterval = 600.0
 
+nickName = '[\\w\\-]+'
+
 class JabberLogBot(JabberBot):
 
 	def __init__(self):
@@ -66,7 +68,7 @@ class JabberLogBot(JabberBot):
 		self.log.setLevel(logging.DEBUG)
 
 		self.offlineMessages = []
-		self.nickRegex = re.compile(r'(:(\S+)[ ,]+)*(\S+):')
+		self.nickRegex = re.compile(r'((?:[, ]*\w+)*(?=:))')
 		self.stripHTMLTagsRegex = re.compile(r'<.*?>')
 
 		#initialize twitter api
@@ -142,8 +144,8 @@ class JabberLogBot(JabberBot):
 		nicks = self.nickRegex.match(rawMessage)
 		channel = mess.getFrom().getStripped()
 		if nicks is not None:
-			nicks = nicks.groups()
-			for nick in nicks
+			nicks = re.split(r'[, ]+', nicks.group(0))
+			for nick in nicks:
 				uniqueKey = nick+' '+channel
 				if uniqueKey in self.offlineUsers and channel+'/'+nick not in self._JabberBot__seen:
 					senderUsername = self.get_sender_username(mess)
@@ -213,7 +215,7 @@ class JabberLogBot(JabberBot):
 		super(JabberLogBot, self).callback_message(conn, mess)
 
 	@botcmd(hidden=True)
-        def _getin(self, mess, args):
+	def _getin(self, mess, args):
 		'''Make me join all channels I am invited'''
 		self.join()
 
@@ -298,7 +300,7 @@ class JabberLogBot(JabberBot):
 			stdout = stdout.encode('utf-8')
 			self.log.info(stdout.rstrip('\n'))
 			return stdout.rstrip('\n')
-		except Exception, error:
+		except (Exception, error):
 			return 'An error occured: %s' % error
 	
 	# offline message handling
