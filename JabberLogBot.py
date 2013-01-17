@@ -68,6 +68,7 @@ class JabberLogBot(JabberBot):
 		self.stripHTMLTagsRegex = re.compile(r'<.*?>')
 
 		#initialize twitter api
+		self.lastTimeTwitterWasChecked = time.time()
 		consumer_key = self.config.get('twitter', 'consumer_key');
 		consumer_secret = self.config.get('twitter', 'consumer_secret');
 		access_token_key = self.config.get('twitter', 'access_token_key');
@@ -377,6 +378,12 @@ class JabberLogBot(JabberBot):
 		return tweets;
 
 	def checkTwitter(self):
+		currentTime = time.time();
+		if self.lastTimeTwitterWasChecked - currentTime < 1800:
+			return;
+
+		self.lastTimeTwitterWasChecked = currentTime;
+
 		self.log.debug('Looking for new tweets');
 		
 		if len(self.twitterChannels) == 0:
