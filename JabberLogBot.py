@@ -14,7 +14,6 @@ import simplejson
 from shutil import copy
 from subprocess import Popen, PIPE, STDOUT
 import twitter # from http://code.google.com/p/python-twitter/
-import threading
 # used for expanding short urls
 import urllib2
 
@@ -26,7 +25,6 @@ swap_path = '/usr/share/screen/scripts/swap'
 configfile = 'jabberlogbot.conf'
 
 maxofflinemessages = 1000
-twittercheckinterval = 600.0
 
 class JabberLogBot(JabberBot):
 
@@ -76,7 +74,6 @@ class JabberLogBot(JabberBot):
 		access_token_secret = self.config.get('twitter', 'access_token_secret');
 		self.twitter = twitter.Api(consumer_key=consumer_key, consumer_secret=consumer_secret,access_token_key=access_token_key, access_token_secret=access_token_secret);
 		self.twitterChannels = self.config.get('twitter', 'channels').split(',');
-		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
 		self.match_urls = re.compile(r"""((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|(([^\s()<>]+|(([^\s()<>]+)))*))+(?:(([^\s()<>]+|(([^\s()<>]+)))*)|[^\s`!()[]{};:'".,<>?«»“”‘’]))""", re.DOTALL);
 
 	# Save parameters to config
@@ -95,6 +92,7 @@ class JabberLogBot(JabberBot):
 	def unknown_command(self, mess, cmd, args):
 		self.logMessage(mess)
 		self.saveOfflineMessage(mess)
+		self.checkTwitter()
 	
 	def top_of_help_message(self):
 		return "This is the skweez.net jabber bot.\nThis channel is logged so watch your mouth."
@@ -157,7 +155,6 @@ class JabberLogBot(JabberBot):
 	def join( self):
 		for c in self.channels:
 			self.join_room(c)
-		self.twitterTimer.start();
 
 	def callback_presence(self, conn, presence):
 		channel = presence.getFrom().getStripped()
@@ -368,7 +365,6 @@ class JabberLogBot(JabberBot):
 	def expandLinksInText(self, text):
 		return self.match_urls.sub(lambda x: urllib2.urlopen(x.group()).url, text);
 		
-
 	def getLatestTweets( self ):
 		latestTweetID = self.config.get('twitter', 'latestTweetID');
 
@@ -380,12 +376,8 @@ class JabberLogBot(JabberBot):
 				self.save_config();
 		return tweets;
 
-	def twitterLoop(self):
+	def checkTwitter(self):
 		self.log.debug('Looking for new tweets');
-		
-		#look for new tweets after interval
-		self.twitterTimer = threading.Timer(twittercheckinterval, self.twitterLoop);
-		self.twitterTimer.start();
 		
 		if len(self.twitterChannels) == 0:
 			self.log.debug('No channels are registered for twitter');
@@ -433,9 +425,6 @@ class JabberLogBot(JabberBot):
 			return 'Disabled Twitter in channel '+channel;
 		else:
 			return 'Twitter is not enabled for '+channel;
-
-	def shutdown(self):
-		self.twitterTimer.cancel();
 
 	@botcmd(hidden=True)
 	def ping(self, mess, args):
