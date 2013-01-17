@@ -28,8 +28,6 @@ configfile = 'jabberlogbot.conf'
 maxofflinemessages = 1000
 twittercheckinterval = 600.0
 
-nickName = '[\\w\\-]+'
-
 class JabberLogBot(JabberBot):
 
 	def __init__(self):
